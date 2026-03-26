@@ -1,0 +1,47 @@
+name: Setup Exercise Branch
+
+# Creates my-first-branch with PROFILE.md and opens a PR to complete the Introduction to GitHub exercise.
+
+on:
+  push:
+    branches:
+      - "copilot/introduction-to-github-exercise"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  setup:
+    name: Create my-first-branch and open PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Create my-first-branch with PROFILE.md
+        run: |
+          git checkout -b my-first-branch
+          echo "Welcome to my GitHub profile!" > PROFILE.md
+          git add PROFILE.md
+          git commit -m "Add PROFILE.md"
+          git push origin my-first-branch --force
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head my-first-branch \
+            --title "Add my first file" \
+            --body "Adding PROFILE.md as part of the Introduction to GitHub exercise. This file introduces the GitHub profile README concept." \
+            || echo "PR may already exist, continuing..."
