@@ -4,19 +4,88 @@ on:
   push:
     branches:
       - main
+      - "copilot/intro-to-github-exercise"
 
 permissions:
   contents: write # Update Readme
   actions: write # Disable/enable workflows
   issues: write # Create issue and comment on issues
+  pull-requests: write # Create pull requests
 
 env:
   STEP_1_FILE: ".github/steps/1-create-a-branch.md"
 
 jobs:
+  setup_exercise_branch:
+    name: Create my-first-branch for exercise
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/copilot/intro-to-github-exercise'
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Enable exercise step workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow enable "Step 2" --repo ${{ github.repository }} || true
+          gh workflow enable "Step 3" --repo ${{ github.repository }} || true
+          gh workflow enable "Step 4" --repo ${{ github.repository }} || true
+          echo "Enabled Step 2, 3, 4 workflows"
+
+      - name: Create my-first-branch with PROFILE.md
+        run: |
+          git checkout -b my-first-branch
+          echo "Welcome to my GitHub profile!" > PROFILE.md
+          git add PROFILE.md
+          git commit -m "Add PROFILE.md"
+          git push origin my-first-branch --force
+
+      - name: Wait for Step 1 and Step 2 workflows to process
+        run: |
+          echo "Waiting for Step 1 and Step 2 workflows to process the branch push..."
+          sleep 90
+
+      - name: Create pull request
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr create \
+            --base main \
+            --head my-first-branch \
+            --title "Add my first file" \
+            --body "Adding PROFILE.md as part of the Introduction to GitHub exercise. This file introduces the GitHub profile README concept." \
+            2>&1) || PR_URL="exists"
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "Created PR: $PR_URL"
+
+      - name: Wait for Step 3 workflow to validate PR
+        run: |
+          echo "Waiting for Step 3 workflow to run and validate the PR..."
+          sleep 90
+
+      - name: Merge pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge my-first-branch \
+            --repo ${{ github.repository }} \
+            --merge \
+            || echo "PR may already be merged or not ready"
+
   start_exercise:
     if: |
-      !github.event.repository.is_template
+      !github.event.repository.is_template &&
+      github.ref == 'refs/heads/main'
     name: Start Exercise
     uses: skills/exercise-toolkit/.github/workflows/start-exercise.yml@v0.8.1
     with:
@@ -27,6 +96,7 @@ jobs:
     name: Post next step content
     runs-on: ubuntu-latest
     needs: [start_exercise]
+    if: github.ref == 'refs/heads/main'
     env:
       ISSUE_REPOSITORY: ${{ github.repository }}
       ISSUE_NUMBER: ${{ needs.start_exercise.outputs.issue-number }}
