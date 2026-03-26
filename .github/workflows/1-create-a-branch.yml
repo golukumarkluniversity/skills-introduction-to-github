@@ -61,7 +61,7 @@ jobs:
             --head my-first-branch \
             --title "Add my first file" \
             --body "Adding PROFILE.md as part of the Introduction to GitHub exercise. This file introduces the GitHub profile README concept." \
-            2>/dev/null || gh pr view my-first-branch --json url --jq '.url')
+            2>/dev/null || gh pr list --head my-first-branch --json number --jq '.[0].number | "https://github.com/${{ github.repository }}/pull/\(.)"')
           PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
           echo "pr-number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "PR number: $PR_NUMBER"
